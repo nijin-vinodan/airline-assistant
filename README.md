@@ -33,7 +33,7 @@ graph TD
     end
 
     subgraph "AI Provider"
-        AllAgents <-->|LangChain| Azure[Azure OpenAI (GPT-4)]
+        AllAgents <-->|LangChain| Azure["Azure OpenAI (GPT-4)"]
     end
 ```
 
