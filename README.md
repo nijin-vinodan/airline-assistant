@@ -12,24 +12,24 @@ graph TD
     Frontend <-->|API /api/chat| Backend[Node.js Express Server]
     
     subgraph "Agent Orchestration Layer"
-        Backend --> Router[Reference Router Agent]
+        Backend --> Router["Reference Router Agent"]
         
-        Router -->|Intent: SEARCH| SearchAg[Search Agent]
-        Router -->|Intent: BOOKING| BookAg[Booking Agent]
-        Router -->|Intent: FAQ| FaqAg[FAQ Agent (RAG)]
-        Router -->|Intent: GENERAL| Gen[General Chat]
+        Router -->|Intent: SEARCH| SearchAg["Search Agent"]
+        Router -->|Intent: BOOKING| BookAg["Booking Agent"]
+        Router -->|Intent: FAQ| FaqAg["FAQ Agent (RAG)"]
+        Router -->|Intent: GENERAL| Gen["General Chat"]
     end
 
     subgraph "Services & Tools"
-        SearchAg -->|Tool: search_flights| MockAPI[Mock Airline API]
+        SearchAg -->|Tool: search_flights| MockAPI["Mock Airline API"]
         
         BookAg -->|Tool: search_flights| MockAPI
         BookAg -->|Tool: book_flight| MockAPI
         
-        FaqAg -->|Reads| PolicyDB[policies.md (RAG Source)]
+        FaqAg -->|Reads| PolicyDB["policies.md (RAG Source)"]
         
-        Runner[Agent Runner] -->|Standardizes Execution| AllAgents[All Agents]
-        Services[Prompt Service] -->|Injects Date & History| AllAgents
+        Runner["Agent Runner"] -->|Standardizes Execution| AllAgents["All Agents"]
+        Services["Prompt Service"] -->|Injects Date & History| AllAgents
     end
 
     subgraph "AI Provider"
