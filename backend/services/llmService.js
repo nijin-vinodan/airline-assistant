@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Helper to convert raw message objects to LangChain message instances
 const convertMessages = (messages) => {
@@ -46,18 +46,18 @@ const convertMessages = (messages) => {
 };
 
 const model = new AzureChatOpenAI({
-    azureOpenAIApiKey: process.env.AZURE_OPENAI_API_KEY,      // In Node.js environment variables (azureOpenAIApiKey)
-    azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION, // e.g. "2023-05-15"
-    azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME, // e.g. "my-resource"
-    azureOpenAIApiDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME, // e.g. "gpt-4o"
+    azureOpenAIApiKey: process.env.AZURE_OPENAI_API_KEY,
+    azureOpenAIEndpoint: process.env.AZURE_OPENAI_ENDPOINT,
+    azureOpenAIApiDeploymentName: process.env.AZURE_CHAT_DEPLOYMENT_NAME,
+    azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION,
     temperature: 0.7,
 });
 
 const jsonModel = new AzureChatOpenAI({
     azureOpenAIApiKey: process.env.AZURE_OPENAI_API_KEY,
+    azureOpenAIEndpoint: process.env.AZURE_OPENAI_ENDPOINT,
+    azureOpenAIApiDeploymentName: process.env.AZURE_CHAT_DEPLOYMENT_NAME,
     azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION,
-    azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME,
-    azureOpenAIApiDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
     temperature: 0.7,
     modelKwargs: { response_format: { type: "json_object" } }
 });
@@ -113,12 +113,13 @@ const llmService = {
         }
     },
 
-    // RAG Helper (unchanged)
-    getPolicyContext: () => {
+    // RAG Helper
+    getPolicyContext: async (query) => {
         try {
-            const policyPath = path.join(__dirname, '../data/policies.md');
-            const content = fs.readFileSync(policyPath, 'utf-8');
-            return content;
+            // Lazy load ragService to avoid circular dep issues or init issues if called early
+            const ragService = require('./ragService');
+            const context = await ragService.retrieveDocuments(query || "general policy");
+            return context;
         } catch (error) {
             console.error("Error reading policies:", error);
             return "";

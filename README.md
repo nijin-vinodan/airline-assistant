@@ -77,8 +77,23 @@ AirlineChatBot/
 ### 1. Prerequisites
 - Node.js installed.
 - **Azure OpenAI** credentials.
+- **ChromaDB** (Vector Database) running locally.
 
-### 2. Backend Setup
+### 2. Vector Database Setup (ChromaDB)
+You need a local instance of ChromaDB running on port `8000`.
+
+**Option A: Using Docker (Recommended)**
+```bash
+docker run -p 8000:8000 chromadb/chroma
+```
+
+**Option B: Using Python**
+```bash
+pip install chromadb
+chroma run --path ./chroma_db
+```
+
+### 3. Backend Setup
 ```bash
 cd backend
 npm install
@@ -87,7 +102,7 @@ cp .env.example .env
 npm start
 ```
 
-### 3. Frontend Setup
+### 4. Frontend Setup
 ```bash
 cd frontend
 npm install

@@ -35,4 +35,10 @@ app.post('/api/chat', async (req, res) => {
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
+
+    // Initialize RAG Vector Store on Startup
+    const ragService = require('./services/ragService');
+    ragService.initializeVectorStore().catch(err => {
+        console.error("Failed to initialize RAG Vector Store on startup:", err);
+    });
 });
