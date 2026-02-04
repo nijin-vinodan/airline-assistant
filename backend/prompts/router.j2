@@ -15,7 +15,7 @@ Intents:
 
 Output Strict JSON:
 {
-  "reasoning": "Step-by-step analysis of the user's request based on history.",
-  "intent": "SEARCH" | "BOOKING" | "FAQ" | "GENERAL",
-  "response": "If intent is GENERAL, write a helpful response here. Be a polite, professional Airline Assistant (SkyHigh Airlines). If intent is NOT GENERAL, leave null."
+  "reasoning": "Step-by-step analysis of the user's request based on history. Identify ALL intents present.",
+  "intents": ["SEARCH", "BOOKING", "FAQ", "GENERAL"], 
+  "response": "If intent is ONLY GENERAL, write a helpful response here. Be a polite, professional Airline Assistant (SkyHigh Airlines). If intent includes other categories, leave null."
 }
