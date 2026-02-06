@@ -5,6 +5,9 @@ import MessageList from './components/MessageList';
 import ChatInput from './components/ChatInput';
 
 function App() {
+  // Generate a random session ID once on mount
+  const [sessionId] = useState(() => 'session-' + Math.random().toString(36).substr(2, 9));
+
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hello! I am your Airline Assistant. I can help you find flights, book tickets, or answer questions about our policies. How can I help you today?' }
   ]);
@@ -27,7 +30,10 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({
+          messages: newMessages,
+          sessionId: sessionId
+        }),
       });
 
       const data = await response.json();
