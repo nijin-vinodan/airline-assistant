@@ -1,7 +1,7 @@
 const llmService = require('../services/llmService');
 const promptService = require('../services/promptService');
 
-const handle = async (messages) => {
+const handle = async (messages, sessionId = null) => {
     console.log("-> Handing over to FAQ Agent (RAG)");
 
     // Retrieve policies
@@ -15,7 +15,7 @@ const handle = async (messages) => {
         ...messages
     ];
 
-    const response = await llmService.getCompletion(agentMessages);
+    const response = await llmService.getCompletion(agentMessages, 'gpt-4o', false, sessionId);
     return response;
 };
 

@@ -18,13 +18,13 @@ const routerAgent = require('./agents/routerAgent');
 
 app.post('/api/chat', async (req, res) => {
     try {
-        const { messages } = req.body;
+        const { messages, sessionId } = req.body;
 
         if (!messages || !Array.isArray(messages)) {
             return res.status(400).json({ error: 'Invalid message format' });
         }
 
-        const response = await routerAgent.handle(messages);
+        const response = await routerAgent.handle(messages, sessionId);
         res.json({ message: response });
 
     } catch (error) {

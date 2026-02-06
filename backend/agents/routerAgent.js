@@ -4,7 +4,7 @@ const bookingAgent = require('./bookingAgent');
 const faqAgent = require('./faqAgent');
 const promptService = require('../services/promptService');
 
-const handle = async (messages) => {
+const handle = async (messages, sessionId = null) => {
     console.log("-> Router Agent Analysis...");
 
     const lastUserMessage = messages[messages.length - 1].content;
@@ -22,7 +22,7 @@ const handle = async (messages) => {
     ];
 
     // Request JSON mode for robustness
-    const response = await llmService.getCompletion(classificationPrompt, 'gpt-4o', true);
+    const response = await llmService.getCompletion(classificationPrompt, 'gpt-4o', true, sessionId);
 
     let cleanIntents = ['GENERAL'];
     let generalResponse = "I'm not sure how to help with that.";
@@ -47,13 +47,13 @@ const handle = async (messages) => {
     for (const intent of cleanIntents) {
         switch (intent) {
             case 'SEARCH':
-                responses.push(await searchAgent.handle(messages));
+                responses.push(await searchAgent.handle(messages, sessionId));
                 break;
             case 'BOOKING':
-                responses.push(await bookingAgent.handle(messages));
+                responses.push(await bookingAgent.handle(messages, sessionId));
                 break;
             case 'FAQ':
-                responses.push(await faqAgent.handle(messages));
+                responses.push(await faqAgent.handle(messages, sessionId));
                 break;
             case 'GENERAL':
                 if (cleanIntents.length === 1) {

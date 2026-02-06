@@ -62,15 +62,29 @@ const jsonModel = new AzureChatOpenAI({
     modelKwargs: { response_format: { type: "json_object" } }
 });
 
+const costService = require('./costService');
+
 const llmService = {
     // Generic chat completion with optional JSON mode
-    getCompletion: async (messages, modelName = 'gpt-4o', jsonMode = false) => {
+    getCompletion: async (messages, modelName = 'gpt-4o', jsonMode = false, sessionId = null) => {
         try {
             const langchainMessages = convertMessages(messages);
 
             const targetModel = jsonMode ? jsonModel : model;
 
             const response = await targetModel.invoke(langchainMessages);
+
+            // Calculate and Log Cost
+            if (response.response_metadata && response.response_metadata.tokenUsage) {
+                const { promptTokens, completionTokens } = response.response_metadata.tokenUsage;
+                let costData = costService.calculateCost(modelName, promptTokens, completionTokens);
+
+                // Accumulate if sessionId exists
+                costData = costService.accumulateCost(sessionId, costData);
+
+                costService.logCost({ ...costData, inputTokens: promptTokens, outputTokens: completionTokens });
+            }
+
             return response.content;
         } catch (error) {
             console.error("LLM Error:", error);
@@ -79,7 +93,7 @@ const llmService = {
     },
 
     // Structured tool calling
-    callTools: async (messages, tools) => {
+    callTools: async (messages, tools, sessionId = null) => {
         try {
             const langchainMessages = convertMessages(messages);
 
@@ -87,6 +101,19 @@ const llmService = {
             const modelWithTools = model.bindTools(tools);
 
             const response = await modelWithTools.invoke(langchainMessages);
+
+            // Calculate and Log Cost
+            if (response.response_metadata && response.response_metadata.tokenUsage) {
+                // Assuming 'gpt-4o' as default for the tool calling model instance defined above
+                const modelName = 'gpt-4o';
+                const { promptTokens, completionTokens } = response.response_metadata.tokenUsage;
+                let costData = costService.calculateCost(modelName, promptTokens, completionTokens);
+
+                // Accumulate if sessionId exists
+                costData = costService.accumulateCost(sessionId, costData);
+
+                costService.logCost({ ...costData, inputTokens: promptTokens, outputTokens: completionTokens });
+            }
 
             // Convert LangChain AIMessage back to standard format expected by agents
             const result = {
@@ -128,3 +155,4 @@ const llmService = {
 };
 
 module.exports = llmService;
+

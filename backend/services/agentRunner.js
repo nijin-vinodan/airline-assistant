@@ -1,6 +1,6 @@
 const llmService = require('./llmService');
 
-const run = async (messages, tools, toolImplementations, systemPrompt) => {
+const run = async (messages, tools, toolImplementations, systemPrompt, sessionId = null) => {
     const agentMessages = [
         { role: "system", content: systemPrompt },
         ...messages
@@ -9,7 +9,7 @@ const run = async (messages, tools, toolImplementations, systemPrompt) => {
     console.log("-> Agent processing...");
 
     // 1. Ask LLM (with tools enabled)
-    const response = await llmService.callTools(agentMessages, tools);
+    const response = await llmService.callTools(agentMessages, tools, sessionId);
 
     // 2. Check if LLM wants to use tools
     if (response.tool_calls && response.tool_calls.length > 0) {
@@ -54,7 +54,7 @@ const run = async (messages, tools, toolImplementations, systemPrompt) => {
         }
 
         // 3. Get final response based on ALL tool outputs
-        const finalResponse = await llmService.getCompletion(agentMessages);
+        const finalResponse = await llmService.getCompletion(agentMessages, 'gpt-4o', false, sessionId);
         return finalResponse;
     }
 
