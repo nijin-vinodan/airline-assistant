@@ -114,7 +114,7 @@ const retrieveDocuments = async (query) => {
     try {
         const store = await initializeVectorStore();
         const results = await store.similaritySearch(query, 3);
-        // console.log("Results:", results); // Squelch log as requested
+        console.log("Results:", results); // Squelch log as requested
         return results.map(res => res.pageContent).join("\n\n---\n\n");
     } catch (error) {
         console.error("Error retrieving documents:", error);

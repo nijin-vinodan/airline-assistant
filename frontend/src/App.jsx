@@ -13,6 +13,7 @@ function App() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [totalCost, setTotalCost] = useState(0);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -43,6 +44,10 @@ function App() {
       } else {
         console.error("No message in response", data);
       }
+
+      if (data.sessionCost !== undefined) {
+        setTotalCost(data.sessionCost);
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       setMessages([...newMessages, { role: 'assistant', content: "Sorry, I am having trouble connecting to the server." }]);
@@ -62,6 +67,11 @@ function App() {
           sendMessage={sendMessage}
           loading={loading}
         />
+        {totalCost > 0 && (
+          <div className="cost-display" style={{ textAlign: 'center', padding: '10px', fontSize: '0.9em', color: '#666' }}>
+            Session Cost: ${totalCost.toFixed(6)}
+          </div>
+        )}
       </div>
     </div>
   );
