@@ -15,6 +15,7 @@ app.get('/health', (req, res) => {
 });
 
 const routerAgent = require('./agents/routerAgent');
+const costService = require('./services/costService');
 
 app.post('/api/chat', async (req, res) => {
     try {
@@ -25,7 +26,12 @@ app.post('/api/chat', async (req, res) => {
         }
 
         const response = await routerAgent.handle(messages, sessionId);
-        res.json({ message: response });
+        const sessionCost = costService.getSessionCost(sessionId);
+
+        res.json({
+            message: response,
+            sessionCost: sessionCost
+        });
 
     } catch (error) {
         console.error("Server Error:", error);

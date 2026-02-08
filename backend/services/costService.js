@@ -62,6 +62,11 @@ const accumulateCost = (sessionId, costData) => {
     };
 };
 
+const getSessionCost = (sessionId) => {
+    if (!sessionId || !sessionCosts[sessionId]) return 0;
+    return sessionCosts[sessionId];
+};
+
 const logCost = (costData) => {
     const timestamp = new Date().toISOString();
     let logMsg = `💰 Cost: $${costData.totalCost.toFixed(6)} (${costData.model})`;
@@ -85,5 +90,6 @@ const logCost = (costData) => {
 module.exports = {
     calculateCost,
     accumulateCost,
+    getSessionCost,
     logCost
 };
