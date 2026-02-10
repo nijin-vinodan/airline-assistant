@@ -16,6 +16,7 @@ app.get('/health', (req, res) => {
 
 const routerAgent = require('./agents/routerAgent');
 const costService = require('./services/costService');
+const guardrailService = require('./services/guardrailService');
 
 app.post('/api/chat', async (req, res) => {
     try {
@@ -25,7 +26,28 @@ app.post('/api/chat', async (req, res) => {
             return res.status(400).json({ error: 'Invalid message format' });
         }
 
+        // GUARDRAIL CHECK
+        const guardrailResult = await guardrailService.validateInput(messages);
+        if (!guardrailResult.valid) {
+            // Log the blocked attempt if needed
+            // Return early
+            return res.json({
+                message: guardrailResult.message,
+                sessionCost: costService.getSessionCost(sessionId) // Return existing cost
+            });
+        }
+
         const response = await routerAgent.handle(messages, sessionId);
+
+        // OUTPUT GUARDRAIL CHECK
+        const outputSafety = guardrailService.validateOutput(response.content || response); // response might be string or object
+        if (!outputSafety.safe) {
+            return res.json({
+                message: "I cannot display this response due to safety policies.",
+                sessionCost: costService.getSessionCost(sessionId)
+            });
+        }
+
         const sessionCost = costService.getSessionCost(sessionId);
 
         res.json({
