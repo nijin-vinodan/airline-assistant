@@ -3,6 +3,7 @@ import './App.css';
 import ChatHeader from './components/ChatHeader';
 import MessageList from './components/MessageList';
 import ChatInput from './components/ChatInput';
+import { chatWithAssistant } from './services/apiService';
 
 function App() {
   // Generate a random session ID once on mount
@@ -26,18 +27,7 @@ function App() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: newMessages,
-          sessionId: sessionId
-        }),
-      });
-
-      const data = await response.json();
+      const data = await chatWithAssistant(newMessages, sessionId);
 
       if (data.message) {
         setMessages([...newMessages, { role: 'assistant', content: data.message }]);

@@ -3,6 +3,7 @@ const { HumanMessage, SystemMessage, ToolMessage, AIMessage } = require("@langch
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
+const { startActiveObservation, startObservation } = require("@langfuse/tracing");
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -68,23 +69,50 @@ const llmService = {
     // Generic chat completion with optional JSON mode
     getCompletion: async (messages, modelName = 'gpt-4o', jsonMode = false, sessionId = null) => {
         try {
+            console.log("Message", messages);
+            console.log("*********");
             const langchainMessages = convertMessages(messages);
 
             const targetModel = jsonMode ? jsonModel : model;
+            let response;
 
-            const response = await targetModel.invoke(langchainMessages);
+            await startActiveObservation("user-request", async (span) => {
+                span.update({
+                    input: { query: messages },
+                });
 
-            // Calculate and Log Cost
-            if (response.response_metadata && response.response_metadata.tokenUsage) {
-                const { promptTokens, completionTokens } = response.response_metadata.tokenUsage;
-                let costData = costService.calculateCost(modelName, promptTokens, completionTokens);
+                // This generation will automatically be a child of "user-request" because of the startObservation function.
+                const generation = startObservation(
+                    "llm-call",
+                    {
+                        model: "gpt-4",
+                        input: [{ role: "user", content: messages }],
+                    },
+                    { asType: "generation" },
+                );
 
-                // Accumulate if sessionId exists
-                costData = costService.accumulateCost(sessionId, costData);
+                response = await targetModel.invoke(langchainMessages);
 
-                costService.logCost({ ...costData, inputTokens: promptTokens, outputTokens: completionTokens });
-            }
+                // Calculate and Log Cost
+                if (response.response_metadata && response.response_metadata.tokenUsage) {
+                    const { promptTokens, completionTokens } = response.response_metadata.tokenUsage;
+                    let costData = costService.calculateCost(modelName, promptTokens, completionTokens);
 
+                    // Accumulate if sessionId exists
+                    costData = costService.accumulateCost(sessionId, costData);
+
+                    costService.logCost({ ...costData, inputTokens: promptTokens, outputTokens: completionTokens });
+                }
+
+                generation
+                    .update({
+                        output: { content: response.content }, // update the output of the generation
+                    })
+                    .end(); // mark this nested observation as complete
+
+                // Add final information about the overall request
+                span.update({ output: "Successfully answered." });
+            });
             return response.content;
         } catch (error) {
             console.error("LLM Error:", error);

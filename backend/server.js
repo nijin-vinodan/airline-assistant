@@ -1,8 +1,8 @@
+require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
+require('./instrumentation');
 
-dotenv.config();
+const cors = require('cors');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -62,6 +62,7 @@ app.post('/api/chat', async (req, res) => {
 });
 
 app.listen(port, () => {
+    console.log("Here");
     console.log(`Server is running on port ${port}`);
 
     // Initialize RAG Vector Store on Startup
