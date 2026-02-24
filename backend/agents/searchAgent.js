@@ -3,7 +3,7 @@ const promptService = require('../services/promptService');
 const agentRunner = require('../services/agentRunner');
 const toolsRegistry = require('../tools');
 
-const handle = async (messages, sessionId = null) => {
+const handle = async (messages, sessionId = null, userId = null, onChunk = null) => {
     console.log("-> Handing over to Search Agent");
 
     const systemPrompt = promptService.render('search');
@@ -13,7 +13,7 @@ const handle = async (messages, sessionId = null) => {
     const tools = toolsRegistry.getTools(requiredTools);
     const toolImplementations = toolsRegistry.getImplementations(requiredTools);
 
-    return await agentRunner.run(messages, tools, toolImplementations, systemPrompt, sessionId);
+    return await agentRunner.run(messages, tools, toolImplementations, systemPrompt, sessionId, userId, onChunk);
 };
 
 module.exports = { handle };

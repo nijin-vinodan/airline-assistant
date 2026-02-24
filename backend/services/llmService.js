@@ -3,7 +3,7 @@ const { HumanMessage, SystemMessage, ToolMessage, AIMessage } = require("@langch
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
-const { startActiveObservation, startObservation } = require("@langfuse/tracing");
+const { startActiveObservation, startObservation, propagateAttributes } = require("@langfuse/tracing");
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -67,48 +67,78 @@ const costService = require('./costService');
 
 const llmService = {
     // Generic chat completion with optional JSON mode
-    getCompletion: async (messages, modelName = 'gpt-4o', jsonMode = false, sessionId = null) => {
+    getCompletion: async (messages, modelName = 'gpt-4o', jsonMode = false, sessionId = null, userId = null, onChunk = null) => {
         try {
-            console.log("Message", messages);
-            console.log("*********");
             const langchainMessages = convertMessages(messages);
 
             const targetModel = jsonMode ? jsonModel : model;
             let response;
 
             await startActiveObservation("user-request", async (span) => {
-                span.update({
+                const updatedAttributes = {
                     input: { query: messages },
-                });
+                    sessionId: sessionId ? String(sessionId) : undefined
+                };
+                span.update(updatedAttributes);
 
-                // This generation will automatically be a child of "user-request" because of the startObservation function.
-                const generation = startObservation(
-                    "llm-call",
-                    {
+                const attributesToPropagate = {};
+                if (userId) attributesToPropagate.userId = String(userId);
+                if (sessionId) attributesToPropagate.sessionId = String(sessionId);
+
+                await propagateAttributes(attributesToPropagate, async () => {
+                    const observationAttributes = {
                         model: "gpt-4",
-                        input: [{ role: "user", content: messages }],
-                    },
-                    { asType: "generation" },
-                );
+                        input: [{ role: "user", content: messages }]
+                    };
 
-                response = await targetModel.invoke(langchainMessages);
+                    // This generation will automatically be a child of "user-request" because of the startObservation function.
+                    const generation = startObservation(
+                        "llm-call",
+                        observationAttributes,
+                        { asType: "generation" },
+                    );
 
-                // Calculate and Log Cost
-                if (response.response_metadata && response.response_metadata.tokenUsage) {
-                    const { promptTokens, completionTokens } = response.response_metadata.tokenUsage;
-                    let costData = costService.calculateCost(modelName, promptTokens, completionTokens);
+                    if (onChunk && !jsonMode) {
+                        const stream = await targetModel.stream(langchainMessages);
+                        let fullContent = "";
+                        let tokenUsage = null;
+                        for await (const chunk of stream) {
+                            if (chunk.content) {
+                                fullContent += chunk.content;
+                                onChunk(chunk.content);
+                            }
+                            if (chunk.response_metadata && chunk.response_metadata.tokenUsage) {
+                                tokenUsage = chunk.response_metadata.tokenUsage;
+                            } else if (chunk.usage_metadata) {
+                                // Sometimes Langchain stream attaches usage_metadata instead
+                                tokenUsage = {
+                                    promptTokens: chunk.usage_metadata.input_tokens,
+                                    completionTokens: chunk.usage_metadata.output_tokens
+                                };
+                            }
+                        }
+                        response = { content: fullContent, response_metadata: { tokenUsage } };
+                    } else {
+                        response = await targetModel.invoke(langchainMessages);
+                    }
 
-                    // Accumulate if sessionId exists
-                    costData = costService.accumulateCost(sessionId, costData);
+                    // Calculate and Log Cost
+                    if (response.response_metadata && response.response_metadata.tokenUsage) {
+                        const { promptTokens, completionTokens } = response.response_metadata.tokenUsage;
+                        let costData = costService.calculateCost(modelName, promptTokens, completionTokens);
 
-                    costService.logCost({ ...costData, inputTokens: promptTokens, outputTokens: completionTokens });
-                }
+                        // Accumulate if sessionId exists
+                        costData = costService.accumulateCost(sessionId, costData);
 
-                generation
-                    .update({
-                        output: { content: response.content }, // update the output of the generation
-                    })
-                    .end(); // mark this nested observation as complete
+                        costService.logCost({ ...costData, inputTokens: promptTokens, outputTokens: completionTokens });
+                    }
+
+                    generation
+                        .update({
+                            output: { content: response.content }, // update the output of the generation
+                        })
+                        .end(); // mark this nested observation as complete
+                });
 
                 // Add final information about the overall request
                 span.update({ output: "Successfully answered." });
@@ -121,7 +151,7 @@ const llmService = {
     },
 
     // Structured tool calling
-    callTools: async (messages, tools, sessionId = null) => {
+    callTools: async (messages, tools, sessionId = null, userId = null) => {
         try {
             const langchainMessages = convertMessages(messages);
 

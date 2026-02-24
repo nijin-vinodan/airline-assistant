@@ -1,6 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 require('./instrumentation');
+const connectDB = require('./config/db');
+
+// Connect to MongoDB
+connectDB();
 
 const cors = require('cors');
 
@@ -11,55 +15,14 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Airline Chatbot Backend is running' });
+    res.json({ status: 'ok', message: 'Airline Chatbot Backend is up and running' });
 });
 
-const routerAgent = require('./agents/routerAgent');
-const costService = require('./services/costService');
-const guardrailService = require('./services/guardrailService');
+const authRouter = require('./routers/authRouter');
+const chatRouter = require('./routers/chatRouter');
 
-app.post('/api/chat', async (req, res) => {
-    try {
-        const { messages, sessionId } = req.body;
-
-        if (!messages || !Array.isArray(messages)) {
-            return res.status(400).json({ error: 'Invalid message format' });
-        }
-
-        // GUARDRAIL CHECK
-        const guardrailResult = await guardrailService.validateInput(messages);
-        if (!guardrailResult.valid) {
-            // Log the blocked attempt if needed
-            // Return early
-            return res.json({
-                message: guardrailResult.message,
-                sessionCost: costService.getSessionCost(sessionId) // Return existing cost
-            });
-        }
-
-        const response = await routerAgent.handle(messages, sessionId);
-
-        // OUTPUT GUARDRAIL CHECK
-        const outputSafety = guardrailService.validateOutput(response.content || response); // response might be string or object
-        if (!outputSafety.safe) {
-            return res.json({
-                message: "I cannot display this response due to safety policies.",
-                sessionCost: costService.getSessionCost(sessionId)
-            });
-        }
-
-        const sessionCost = costService.getSessionCost(sessionId);
-
-        res.json({
-            message: response,
-            sessionCost: sessionCost
-        });
-
-    } catch (error) {
-        console.error("Server Error:", error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
+app.use('/api/auth', authRouter);
+app.use('/api', chatRouter);
 
 app.listen(port, () => {
     console.log("Here");

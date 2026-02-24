@@ -4,7 +4,7 @@ const bookingAgent = require('./bookingAgent');
 const faqAgent = require('./faqAgent');
 const promptService = require('../services/promptService');
 
-const handle = async (messages, sessionId = null) => {
+const handle = async (messages, sessionId = null, userId = null, onChunk = null) => {
     console.log("-> Router Agent Analysis...");
 
     const lastUserMessage = messages[messages.length - 1].content;
@@ -22,7 +22,7 @@ const handle = async (messages, sessionId = null) => {
     ];
 
     // Request JSON mode for robustness
-    const response = await llmService.getCompletion(classificationPrompt, 'gpt-4o', true, sessionId);
+    const response = await llmService.getCompletion(classificationPrompt, 'gpt-4o', true, sessionId, userId);
 
     let cleanIntents = ['GENERAL'];
     let generalResponse = "I'm not sure how to help with that.";
@@ -47,18 +47,27 @@ const handle = async (messages, sessionId = null) => {
     for (const intent of cleanIntents) {
         switch (intent) {
             case 'SEARCH':
-                responses.push(await searchAgent.handle(messages, sessionId));
+                responses.push(await searchAgent.handle(messages, sessionId, userId, onChunk));
                 break;
             case 'BOOKING':
-                responses.push(await bookingAgent.handle(messages, sessionId));
+                responses.push(await bookingAgent.handle(messages, sessionId, userId, onChunk));
                 break;
             case 'FAQ':
-                responses.push(await faqAgent.handle(messages, sessionId));
+                responses.push(await faqAgent.handle(messages, sessionId, userId, onChunk));
                 break;
             case 'GENERAL':
                 if (cleanIntents.length === 1) {
                     // Only use general response if it's the ONLY intent
-                    responses.push(generalResponse || "Hello! How can I help you with your flights today?");
+                    const text = generalResponse || "Hello! How can I help you with your flights today?";
+                    if (onChunk) {
+                        // We already generated this during the classification step, so just stream it out
+                        // We can simulate streaming or just send it as one chunk if we don't want to re-invoke
+                        const words = text.split(' ');
+                        for (let i = 0; i < words.length; i++) {
+                            onChunk(words[i] + (i < words.length - 1 ? ' ' : ''));
+                        }
+                    }
+                    responses.push(text);
                 }
                 break;
             default:
