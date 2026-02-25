@@ -2,6 +2,7 @@ const Chat = require('../models/Chat');
 const routerAgent = require('../agents/routerAgent');
 const costService = require('../services/costService');
 const guardrailService = require('../services/guardrailService');
+const memoryService = require('../services/memoryService');
 
 const getHistory = async (req, res) => {
     try {
@@ -59,7 +60,29 @@ const handleChat = async (req, res) => {
 
         const onChunk = stream ? (chunk) => res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`) : null;
 
-        const response = await routerAgent.handle(messages, sessionId, req.user._id, onChunk);
+        // Fetch existing chat to check for summaries
+        let chat = await Chat.findOne({ userId: req.user._id, sessionId });
+
+        // Prepare context-aware messages for the router
+        let contextMessages = [...messages];
+        if (chat && chat.summary && chat.summarizedCount > 0) {
+            // Add a discrete system context note about older interactions
+            const summaryMessage = {
+                role: 'system',
+                content: `Here is a summary of the conversation so far: ${chat.summary}`
+            };
+
+            // The frontend sends the entire message history back to us for statelessness.
+            // But we already have the summary of older messages.
+            // We should strip the first 'summarizedCount' messages from the payload
+            // to actually save on token limits.
+            const slicedMessages = messages.slice(chat.summarizedCount);
+
+            // Re-prepend the system summary message
+            contextMessages = [summaryMessage, ...slicedMessages];
+        }
+
+        const response = await routerAgent.handle(contextMessages, sessionId, req.user._id, onChunk);
 
         // OUTPUT GUARDRAIL CHECK
         const outputSafety = guardrailService.validateOutput(response.content || response); // response might be string or object
@@ -78,7 +101,6 @@ const handleChat = async (req, res) => {
         const sessionCost = costService.getSessionCost(sessionId);
 
         // Save to DB
-        let chat = await Chat.findOne({ userId: req.user._id, sessionId });
 
         let assistantContent = response;
         if (response && typeof response === 'object' && response.content) {
@@ -109,6 +131,12 @@ const handleChat = async (req, res) => {
                 sessionCost: sessionCost
             });
         }
+
+        // Asynchronously check and manage memory length
+        // We do not await this, so the user receives response instantly.
+        memoryService.manageMemory(sessionId, req.user._id).catch(err => {
+            console.error("Background Memory Management failed:", err);
+        });
 
     } catch (error) {
         console.error("Server Error:", error);
